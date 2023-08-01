@@ -7,12 +7,17 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.util.DefaultUriBuilderFactory;
+import ru.practicum.dto.EndpointHitDto;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class StatisticsClient extends BaseClient {
+
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Autowired
     public StatisticsClient(String serverUrl, RestTemplateBuilder builder) {
@@ -29,13 +34,36 @@ public class StatisticsClient extends BaseClient {
         return post("/hit", endpointHitDto);
     }
 
-    public ResponseEntity<Object> getStatistics(String start, String end, List<String> uris, boolean unique) {
-        Map<String, Object> parameters = Map.of(
-                "start", start,
-                "end", end,
-                "uris", uris,
-                "unique", unique
-        );
-        return get("/stats?start={start}&end={end}&uris={uris}&unique={unique}", parameters);
+    public ResponseEntity<Object> get(LocalDateTime start, LocalDateTime end) {
+        return getStatistics(start, end, null, null);
+    }
+
+    public ResponseEntity<Object> get(LocalDateTime start, LocalDateTime end, List<String> uris) {
+        return getStatistics(start, end, uris, null);
+    }
+
+    public ResponseEntity<Object> get(LocalDateTime start, LocalDateTime end, Boolean unique) {
+        return getStatistics(start, end, null, unique);
+    }
+
+    public ResponseEntity<Object> getStatistics(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique) {
+        if (start == null || end == null || start.isAfter(end)) {
+            throw new IllegalArgumentException("Time is wrong");
+        }
+
+        StringBuilder uri = new StringBuilder("/stats?start={start}&end={end}");
+        Map<String, Object> parameters = Map.of("start", start.format(formatter), "end", end.format(formatter));
+
+        if (uris != null && !uris.isEmpty()) {
+            for (String u : uris) {
+                uri.append("&uris=").append(u);
+            }
+        }
+
+        if (unique != null) {
+            uri.append("&unique=").append(unique);
+        }
+
+        return get(uri.toString(), parameters);
     }
 }
