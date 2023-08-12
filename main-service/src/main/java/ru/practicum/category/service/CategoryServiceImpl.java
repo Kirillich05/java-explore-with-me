@@ -26,9 +26,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryDto getCategory(long id) {
-        var category = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Not found category by id " + id)
-        );
+        var category = findOrThrow(id);
         return convertToDto(category);
     }
 
