@@ -2,10 +2,8 @@ package ru.practicum.event.dto;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import ru.practicum.request.model.RequestStatusAction;
+import ru.practicum.request.dto.ParticipationRequestDto;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 import java.util.List;
 
 @Getter
@@ -15,9 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 public class EventRequestStatusUpdateResult {
 
-    @NotEmpty
-    List<Long> requestIds;
-
-    @NotNull
-    RequestStatusAction status;
+    List<ParticipationRequestDto> confirmedRequests;
+    List<ParticipationRequestDto> rejectedRequests;
 }

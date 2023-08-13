@@ -2,19 +2,26 @@ package ru.practicum.event.service;
 
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.category.model.Category;
 import ru.practicum.category.repository.CategoryRepository;
 import ru.practicum.event.dto.*;
 import ru.practicum.event.enums.EventSortType;
 import ru.practicum.event.enums.EventState;
 import ru.practicum.event.enums.EventStateAdminAction;
+import ru.practicum.event.enums.UserStateAction;
 import ru.practicum.event.model.Event;
 import ru.practicum.event.repository.EventRepository;
+import ru.practicum.event.repository.LocationRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.statistic.StatsHitMapper;
 import ru.practicum.statistic.StatsService;
+import ru.practicum.user.model.User;
+import ru.practicum.user.repository.UserRepository;
 import ru.practicum.utils.Pattern;
 
 import javax.persistence.EntityManager;
@@ -39,8 +46,10 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final StatsService statsService;
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
     private final ModelMapper mapper;
     private final EntityManager entityManager;
+    private final LocationRepository locationRepository;
 
     @Override
     public List<EventShortDto> getEventsPublicAccess(String text, List<Long> categories, Boolean paid, String rangeStart,
@@ -118,18 +127,7 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    public List<EventShortDto> getEventShortWithViewsAndRequests(List<Event> events) {
-        Map<Long, Long> views = statsService.getViews(events);
-        Map<Long, Long> requests = statsService.getConfirmedRequests(events);
-
-        return events.stream()
-                .map(event -> convertToEventShortDto(event,
-                        requests.getOrDefault(event.getId(), 0L),
-                        views.getOrDefault(event.getId(), 0L)))
-                .collect(Collectors.toList());
-    }
-
-    @Override
+    @Transactional
     public EventFullDto updateEventAdminAccess(long eventId, EventUpdateRequestDto updateRequestDto) {
         var event = findOrThrow(eventId);
         if (updateRequestDto.getEventDate() != null) {
@@ -226,31 +224,123 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional
     public EventFullDto createEvent(long userId, NewEventDto newEventDto) {
-        return null;
+        var category = categoryRepository.findById(newEventDto.getCategory()).orElseThrow(
+                () -> new NotFoundException("Category is not found"));
+        var initiator = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
+
+        if (newEventDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
+            throw new ConflictException("Wrong time");
+        }
+
+        newEventDto.setLocation(locationRepository.save(newEventDto.getLocation()));
+
+        var event = eventRepository.save(convertNewEventDtoToEventModel(
+                newEventDto, category, initiator));
+        EventFullDto eventFullDto = convertToEventFullDto(event, 0L, 0L);
+
+        return eventFullDto;
     }
 
     @Override
     public List<EventShortDto> getEventsPrivateAccess(long userId, int from, int size) {
-        return null;
+        Pageable page = PageRequest.of(from / size, size);
+        userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
+        var events = eventRepository.findAllByInitiatorId(userId, page).stream()
+                .collect(Collectors.toList());
+
+        return getEventShortWithViewsAndRequests(events);
     }
 
     @Override
     public EventFullDto getEventByIdPrivateAccess(long userId, long eventId) {
-        return null;
+        var event = findEventByInitiator(eventId, userId);
+        return mapEventToViewAndRequests(List.of(event)).get(0);
     }
 
     @Override
+    @Transactional
     public EventFullDto updateEventPrivateAccess(long userId, long eventId, UpdateEventUserRequestDto requestDto) {
-        return null;
+        var event = eventRepository.findByIdAndInitiator(userId, eventId).orElseThrow(
+                () -> new NotFoundException("Event was not found")
+        );
+
+        if (requestDto.getEventDate() != null && requestDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
+            throw new ConflictException("Event started in less 2 h");
+        }
+
+        if (event.getState().equals(EventState.PUBLISHED)) {
+            throw new ConflictException("Event is published");
+        }
+
+        if (requestDto.getStateAction() != null) {
+            if (requestDto.getStateAction().equals(UserStateAction.CANCEL_REVIEW)) {
+                event.setState(EventState.CANCELED);
+            } else {
+                event.setState(EventState.PENDING);
+            }
+        }
+
+        if (requestDto.getAnnotation() != null) {
+            event.setAnnotation(requestDto.getAnnotation());
+        }
+        if (requestDto.getCategory() != null) {
+            var category = categoryRepository.findById(requestDto.getCategory()).orElseThrow();
+            event.setCategory(category);
+        }
+        if (requestDto.getDescription() != null) {
+            event.setDescription(requestDto.getDescription());
+        }
+        if (requestDto.getEventDate() != null) {
+            event.setEventDate(requestDto.getEventDate());
+        }
+        if (requestDto.getLocation() != null) {
+            var location = locationRepository.save(requestDto.getLocation());
+            event.setLocation(location);
+        }
+        if (requestDto.getPaid() != null) {
+            event.setPaid(requestDto.getPaid());
+        }
+        if (requestDto.getParticipantLimit() != null) {
+            event.setParticipantLimit(requestDto.getParticipantLimit());
+        }
+        if (requestDto.getRequestModeration() != null) {
+            event.setRequestModeration(requestDto.getRequestModeration());
+        }
+        if (requestDto.getTitle() != null) {
+            event.setTitle(requestDto.getTitle());
+        }
+
+        eventRepository.save(event);
+        return mapEventToViewAndRequests(List.of(event)).get(0);
     }
 
-    private Event findOrThrow(long id) {
+    @Override
+    public List<EventShortDto> getEventShortWithViewsAndRequests(List<Event> events) {
+        Map<Long, Long> views = statsService.getViews(events);
+        Map<Long, Long> requests = statsService.getConfirmedRequests(events);
+
+        return events.stream()
+                .map(event -> convertToEventShortDto(event,
+                        requests.getOrDefault(event.getId(), 0L),
+                        views.getOrDefault(event.getId(), 0L)))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Event findOrThrow(long id) {
         return eventRepository
                 .findById(id)
                 .orElseThrow(
                         () -> new NotFoundException("Event by id " + id + " was not found")
                 );
+    }
+
+    private Event findEventByInitiator(long eventId, long userId) {
+        userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
+        return eventRepository.findByIdAndInitiator(eventId, userId).orElseThrow(() ->
+                new NotFoundException("Event is not found"));
     }
 
     private List<EventFullDto> mapEventToViewAndRequests(List<Event> events) {
@@ -273,6 +363,14 @@ public class EventServiceImpl implements EventService {
         eventFullDto.setViews(views);
         eventFullDto.setConfirmedRequests(requests);
         return eventFullDto;
+    }
+
+    private Event convertNewEventDtoToEventModel(NewEventDto newEventDto, Category category,
+                                                 User initiator) {
+        var event = mapper.map(newEventDto, Event.class);
+        event.setCategory(category);
+        event.setInitiator(initiator);
+        return event;
     }
 
     private EventShortDto convertToEventShortDto(Event event, Long requests, Long views) {

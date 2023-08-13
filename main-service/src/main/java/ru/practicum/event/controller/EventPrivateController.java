@@ -64,8 +64,8 @@ public class EventPrivateController {
 
     @PatchMapping("/{eventId}/requests")
     public EventRequestStatusUpdateResult updateEventRequestStatus(@PathVariable("userId") @Positive long userId,
-                                                                   @PathVariable("eventId") @Positive long eventId,
-                                                                   @RequestBody @Valid EventRequestStatusUpdateRequest updateRequest) {
+                                                                    @PathVariable("eventId") @Positive long eventId,
+                                                                    @RequestBody @Valid EventRequestStatusUpdateRequest updateRequest) {
         log.info("Updating user event request " + eventId + " from private access");
         return requestService.updateUserEventRequestStatus(userId, eventId, updateRequest);
     }
