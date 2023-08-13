@@ -1,16 +1,17 @@
 package ru.practicum.event.service;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.event.dto.EventFullDto;
-import ru.practicum.event.dto.EventShortDto;
-import ru.practicum.event.dto.EventUpdateRequestDto;
+import ru.practicum.category.repository.CategoryRepository;
+import ru.practicum.event.dto.*;
 import ru.practicum.event.enums.EventSortType;
 import ru.practicum.event.enums.EventState;
+import ru.practicum.event.enums.EventStateAdminAction;
 import ru.practicum.event.model.Event;
 import ru.practicum.event.repository.EventRepository;
+import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.statistic.StatsHitMapper;
 import ru.practicum.statistic.StatsService;
@@ -32,11 +33,12 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
     private final StatsService statsService;
+    private final CategoryRepository categoryRepository;
     private final ModelMapper mapper;
     private final EntityManager entityManager;
 
@@ -129,12 +131,117 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public EventFullDto updateEventAdminAccess(long eventId, EventUpdateRequestDto updateRequestDto) {
-        return null;
+        var event = findOrThrow(eventId);
+        if (updateRequestDto.getEventDate() != null) {
+            var eventTime = updateRequestDto.getEventDate();
+            if (eventTime.isBefore(LocalDateTime.now()) || eventTime.isBefore(event.getPublishedOn().plusHours(1))) {
+                throw new ConflictException("The time is wrong");
+            }
+            event.setEventDate(updateRequestDto.getEventDate());
+        }
+
+        if (!event.getState().equals(EventState.PENDING)) {
+            throw new ConflictException("Event is published or cancelled");
+        }
+        if (updateRequestDto.getAnnotation() != null) {
+            event.setAnnotation(updateRequestDto.getAnnotation());
+        }
+        if (updateRequestDto.getCategory() != null) {
+            var category = categoryRepository.findById(updateRequestDto.getCategory()).orElseThrow(
+                    () -> new NotFoundException("Category is not existed"));
+            event.setCategory(category);
+        }
+        if (updateRequestDto.getDescription() != null) {
+            event.setDescription(updateRequestDto.getDescription());
+        }
+        if (updateRequestDto.getLocation() != null) {
+            event.setLocation(updateRequestDto.getLocation());
+        }
+        if (updateRequestDto.getPaid() != null) {
+            event.setPaid(updateRequestDto.getPaid());
+        }
+        if (updateRequestDto.getParticipantLimit() != null) {
+            event.setParticipantLimit(updateRequestDto.getParticipantLimit());
+        }
+        if (updateRequestDto.getRequestModeration() != null) {
+            event.setRequestModeration(updateRequestDto.getRequestModeration());
+        }
+        if (updateRequestDto.getTitle() != null) {
+            event.setTitle(updateRequestDto.getTitle());
+        }
+
+        if (updateRequestDto.getStateAction() != null) {
+            if (updateRequestDto.getStateAction().equals(EventStateAdminAction.PUBLISH_EVENT)) {
+                event.setState(EventState.PUBLISHED);
+                event.setPublishedOn(LocalDateTime.now());
+            } else if (updateRequestDto.getStateAction().equals(EventStateAdminAction.REJECT_EVENT)) {
+                event.setState(EventState.CANCELED);
+            }
+        }
+
+        eventRepository.save(event);
+        var updatedEvent = mapEventToViewAndRequests(List.of(event)).get(0);
+        return updatedEvent;
     }
 
     @Override
     public List<EventFullDto> getEventsAdminAccess(List<Long> users, List<EventState> states, List<Long> categories,
                                                    String rangeStart, String rangeEnd, int from, int size) {
+        var start = rangeStart == null ? null : LocalDateTime.parse(rangeStart, DateTimeFormatter.ofPattern(Pattern.DATE));
+        var end = rangeEnd == null ? null : LocalDateTime.parse(rangeEnd, DateTimeFormatter.ofPattern(Pattern.DATE));
+
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Event> query = criteriaBuilder.createQuery(Event.class);
+        Root<Event> root = query.from(Event.class);
+        Predicate predicate = criteriaBuilder.conjunction();
+
+        if (categories != null && !categories.isEmpty()) {
+            predicate = criteriaBuilder.and(predicate, root.get("category").in(categories));
+        }
+
+        if (states != null && !states.isEmpty()) {
+            predicate = criteriaBuilder.and(predicate, root.get("state").in(states));
+        }
+
+        if (users != null && !users.isEmpty()) {
+            predicate = criteriaBuilder.and(predicate, root.get("initiator").in(users));
+        }
+
+        if (rangeEnd != null) {
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.lessThanOrEqualTo(root.get("evenDate")
+                    .as(LocalDateTime.class), end));
+        }
+        if (rangeStart != null) {
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.greaterThanOrEqualTo(root.get("evenDate")
+                    .as(LocalDateTime.class), start));
+        }
+
+        query.select(root).where(predicate);
+        List<Event> events = entityManager.createQuery(query)
+                .setFirstResult(from)
+                .setMaxResults(size)
+                .getResultList();
+
+        return mapEventToViewAndRequests(events);
+    }
+
+    @Override
+    public EventFullDto createEvent(long userId, NewEventDto newEventDto) {
+        return null;
+    }
+
+    @Override
+    public List<EventShortDto> getEventsPrivateAccess(long userId, int from, int size) {
+        return null;
+    }
+
+    @Override
+    public EventFullDto getEventByIdPrivateAccess(long userId, long eventId) {
+        return null;
+    }
+
+    @Override
+    public EventFullDto updateEventPrivateAccess(long userId, long eventId, UpdateEventUserRequestDto requestDto) {
         return null;
     }
 
