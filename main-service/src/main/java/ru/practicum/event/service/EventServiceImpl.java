@@ -337,6 +337,11 @@ public class EventServiceImpl implements EventService {
                 );
     }
 
+    @Override
+    public List<Event> findAllByIds(List<Long> ids) {
+        return eventRepository.findAllByIdIn(ids);
+    }
+
     private Event findEventByInitiator(long eventId, long userId) {
         userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
         return eventRepository.findByIdAndInitiator(eventId, userId).orElseThrow(() ->

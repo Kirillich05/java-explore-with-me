@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.user.dto.NewUserRequest;
 import ru.practicum.user.dto.UserDto;
 import ru.practicum.user.model.User;
 import ru.practicum.user.repository.UserRepository;
@@ -27,12 +28,12 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<UserDto> getAllUsers(List<Long> ids, int from, int size) {
         Pageable page = PageRequest.of(from / size, size);
-        if (!ids.isEmpty()) {
-            return repo.findAllByIdIn(ids, page).stream()
+        if (ids == null || ids.isEmpty()) {
+            return repo.findAll(page).stream()
                     .map(this::convertToDto)
                     .collect(Collectors.toList());
         } else {
-            return repo.findAll(page).stream()
+            return repo.findAllByIdIn(ids, page).stream()
                     .map(this::convertToDto)
                     .collect(Collectors.toList());
         }
@@ -40,7 +41,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDto saveUser(UserDto userDto) {
+    public UserDto saveUser(NewUserRequest userDto) {
         var user = convertToModel(userDto);
         return convertToDto(repo.save(user));
     }
@@ -56,7 +57,7 @@ public class UserServiceImpl implements UserService {
         return mapper.map(user, UserDto.class);
     }
 
-    private User convertToModel(UserDto dto) {
+    private User convertToModel(NewUserRequest dto) {
         return mapper.map(dto, User.class);
     }
 }

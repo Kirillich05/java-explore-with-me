@@ -1,21 +1,22 @@
-package ru.practicum.category.dto;
+package ru.practicum.compilation.dto;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
+import java.util.List;
 
 @Getter
 @Setter
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 @NoArgsConstructor
-public class CategoryDto {
+public class UpdateCompilationRequest {
 
-    long id;
+    List<Long> events;
+    Boolean pinned;
 
-    @NotBlank
     @Length(min = 1, max = 50)
-    String name;
+    String title;
 }

@@ -32,4 +32,6 @@ public interface EventService {
     EventFullDto updateEventPrivateAccess(long userId, long eventId, UpdateEventUserRequestDto requestDto);
 
     Event findOrThrow(long id);
+
+    List<Event> findAllByIds(List<Long> ids);
 }

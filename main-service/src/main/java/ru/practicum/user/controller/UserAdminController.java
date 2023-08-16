@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.practicum.user.dto.NewUserRequest;
 import ru.practicum.user.dto.UserDto;
 import ru.practicum.user.service.UserService;
 
@@ -32,7 +33,7 @@ public class UserAdminController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto saveUser(@Valid @RequestBody UserDto userDto) {
+    public UserDto saveUser(@Valid @RequestBody NewUserRequest userDto) {
         log.info("Create user");
         return service.saveUser(userDto);
     }

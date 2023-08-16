@@ -51,9 +51,9 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryDto updateCategory(long id, CategoryDto categoryDto) {
         var category = findOrThrow(id);
 
-        if (categoryDto.getName().equals(category.getName())) {
-            throw new ConflictException("Category is existed");
-        }
+//        if (categoryDto.getName().equals(category.getName())) {
+//            throw new ConflictException("Category is existed");
+//        }
 
         category.setName(categoryDto.getName());
         var updatedCategory = repo.save(category);
