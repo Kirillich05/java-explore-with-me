@@ -32,10 +32,7 @@ import javax.persistence.criteria.Root;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,11 +77,11 @@ public class EventServiceImpl implements EventService {
         }
 
         if (rangeEnd != null) {
-            predicate = criteriaBuilder.and(predicate, criteriaBuilder.lessThanOrEqualTo(root.get("evenDate")
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.lessThanOrEqualTo(root.get("eventDate")
                     .as(LocalDateTime.class), end));
         }
         if (rangeStart != null) {
-            predicate = criteriaBuilder.and(predicate, criteriaBuilder.greaterThanOrEqualTo(root.get("evenDate")
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.greaterThanOrEqualTo(root.get("eventDate")
                     .as(LocalDateTime.class), start));
         }
 
@@ -206,11 +203,11 @@ public class EventServiceImpl implements EventService {
         }
 
         if (rangeEnd != null) {
-            predicate = criteriaBuilder.and(predicate, criteriaBuilder.lessThanOrEqualTo(root.get("evenDate")
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.lessThanOrEqualTo(root.get("eventDate")
                     .as(LocalDateTime.class), end));
         }
         if (rangeStart != null) {
-            predicate = criteriaBuilder.and(predicate, criteriaBuilder.greaterThanOrEqualTo(root.get("evenDate")
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.greaterThanOrEqualTo(root.get("eventDate")
                     .as(LocalDateTime.class), start));
         }
 
@@ -219,7 +216,6 @@ public class EventServiceImpl implements EventService {
                 .setFirstResult(from)
                 .setMaxResults(size)
                 .getResultList();
-
         return mapEventToViewAndRequests(events);
     }
 
@@ -384,4 +380,14 @@ public class EventServiceImpl implements EventService {
         eventShortDto.setConfirmedRequests(requests);
         return eventShortDto;
     }
+
+//    private void isValidDate(String start, String end) {
+//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Pattern.DATE);
+//        LocalDateTime dateStart = LocalDateTime.parse(start, formatter);
+//        LocalDateTime dateEnd = LocalDateTime.parse(end, formatter);
+//
+//        if (dateStart.isAfter(dateEnd)) {
+//            throw new BadRequestException("End is before than start datetime");
+//        }
+//    }
 }
