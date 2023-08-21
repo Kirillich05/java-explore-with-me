@@ -10,7 +10,6 @@ public class StatsHitMapper {
     public static EndpointHitDto toEndpointHit(HttpServletRequest request,
                                                String app) {
         return EndpointHitDto.builder()
-                .id(null)
                 .app(app)
                 .uri(request.getRequestURI())
                 .ip(request.getRemoteAddr())

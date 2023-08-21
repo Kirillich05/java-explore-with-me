@@ -38,7 +38,7 @@ public class UserAdminController {
         return service.saveUser(userDto);
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable long userId) {
         log.info("Delete user by id " + userId);

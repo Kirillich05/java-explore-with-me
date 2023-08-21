@@ -2,7 +2,6 @@ package ru.practicum.statistic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -39,8 +38,8 @@ public class StatsServiceImpl implements StatsService {
         ResponseEntity<Object> resp = statisticsClient.getStatistics(start, end, uris, unique);
 
         try {
-            return Collections.singletonList(objectMapper.readValue(
-                    objectMapper.writeValueAsString(resp.getBody()), ViewStatsDto.class));
+            return Arrays.asList(objectMapper.readValue(
+                    objectMapper.writeValueAsString(resp.getBody()), ViewStatsDto[].class));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -86,13 +85,11 @@ public class StatsServiceImpl implements StatsService {
                 .collect(Collectors.toList());
         Map<Long, Long> requests = new HashMap<>();
 
-        if (!eventIds.isEmpty()) {
-            requestRepository.findAllConfirmedEventIds(eventIds)
-                    .forEach(eventOfConfirmedRequests ->
-                            requests.put(eventOfConfirmedRequests.getEventId(),
-                                    eventOfConfirmedRequests.getConfirmedRequests()));
-        }
 
+        requestRepository.findAllConfirmedEventIds(eventIds)
+                .forEach(eventOfConfirmedRequests ->
+                        requests.put(eventOfConfirmedRequests.getEventId(),
+                                eventOfConfirmedRequests.getConfirmedRequests()));
         return requests;
     }
 }

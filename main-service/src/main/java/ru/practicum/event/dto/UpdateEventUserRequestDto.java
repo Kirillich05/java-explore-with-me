@@ -3,11 +3,11 @@ package ru.practicum.event.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.validator.constraints.Length;
 import ru.practicum.event.enums.UserStateAction;
 import ru.practicum.event.model.Location;
 import ru.practicum.utils.Pattern;
 
-import javax.validation.constraints.*;
 import java.time.LocalDateTime;
 
 @Getter
@@ -17,11 +17,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class UpdateEventUserRequestDto {
 
-    @Size(min = 20, max = 2000)
+    @Length(min = 20, max = 2000)
     String annotation;
     Long category;
 
-    @Size(min = 20, max = 7000)
+    @Length(min = 20, max = 7000)
     String description;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Pattern.DATE)
@@ -34,6 +34,6 @@ public class UpdateEventUserRequestDto {
     Boolean requestModeration;
     UserStateAction stateAction;
 
-    @Size(min = 3, max = 120)
+    @Length(min = 3, max = 120)
     String title;
 }

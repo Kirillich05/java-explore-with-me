@@ -1,12 +1,12 @@
 package ru.practicum.compilation.service;
 
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.compilation.dto.CompilationDto;
 import ru.practicum.compilation.dto.NewCompilationDto;
 import ru.practicum.compilation.dto.UpdateCompilationRequest;
+import ru.practicum.compilation.mapper.CompilationMapper;
 import ru.practicum.compilation.model.Compilation;
 import ru.practicum.compilation.repository.CompilationRepository;
 import ru.practicum.event.dto.EventShortDto;
@@ -30,15 +30,15 @@ public class CompilationServiceImpl implements CompilationService {
     private final CompilationRepository repo;
     private final EventService eventService;
     private final EntityManager entityManager;
-    private final ModelMapper mapper;
+    private final CompilationMapper compilationMapper;
 
     @Override
     @Transactional
     public CompilationDto create(NewCompilationDto newCompilationDto) {
         List<Event> events = eventService.findAllByIds(newCompilationDto.getEvents());
-        Compilation compilation = repo.save(convertToModel(newCompilationDto, events));
+        Compilation compilation = repo.save(compilationMapper.fromNewCompilationDtoToModel(newCompilationDto, events));
 
-        return convertToDto(compilation);
+        return compilationMapper.fromModelToCompilationDto(compilation);
     }
 
     @Override
@@ -58,7 +58,7 @@ public class CompilationServiceImpl implements CompilationService {
         }
 
         var updatedCompilation = repo.save(compilation);
-        return convertToDto(updatedCompilation);
+        return compilationMapper.fromModelToCompilationDto(updatedCompilation);
     }
 
     @Override
@@ -72,7 +72,7 @@ public class CompilationServiceImpl implements CompilationService {
     public CompilationDto getById(long compId) {
         var compilation = findOrThrow(compId);
         List<EventShortDto> events = eventService.getEventShortWithViewsAndRequests(compilation.getEvents());
-        return convertToDto(compilation, events);
+        return compilationMapper.fromModelToCompilationDto(compilation, events);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class CompilationServiceImpl implements CompilationService {
                 .getResultList();
 
         return compilations.stream()
-                .map(this::convertToDto)
+                .map(compilationMapper::fromModelToCompilationDto)
                 .collect(Collectors.toList());
     }
 
@@ -108,21 +108,5 @@ public class CompilationServiceImpl implements CompilationService {
                 .orElseThrow(
                         () -> new NotFoundException("Compilation by id " + id + " was not found")
                 );
-    }
-
-    private CompilationDto convertToDto(Compilation compilation, List<EventShortDto> events) {
-        var compilationDto = mapper.map(compilation, CompilationDto.class);
-        compilationDto.setEvents(events);
-        return compilationDto;
-    }
-
-    private CompilationDto convertToDto(Compilation compilation) {
-        return mapper.map(compilation, CompilationDto.class);
-    }
-
-    private Compilation convertToModel(NewCompilationDto compilationDto, List<Event> events) {
-        var compilation = mapper.map(compilationDto, Compilation.class);
-        compilation.setEvents(events);
-        return compilation;
     }
 }

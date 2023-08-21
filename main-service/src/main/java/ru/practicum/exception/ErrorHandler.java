@@ -30,10 +30,4 @@ public class ErrorHandler {
     public ErrorResponse handlerDataAccessException(final ConflictException e) {
         return new ErrorResponse(e.getMessage());
     }
-//
-//    @ExceptionHandler
-//    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-//    public ErrorResponse handlerUnsupportedState(final ValidationException ex) {
-//        return new ErrorResponse(ex.getMessage());
-//    }
 }

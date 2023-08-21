@@ -1,17 +1,16 @@
 package ru.practicum.request.service;
 
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.event.dto.EventRequestStatusUpdateRequest;
 import ru.practicum.event.dto.EventRequestStatusUpdateResult;
 import ru.practicum.event.enums.EventState;
 import ru.practicum.event.service.EventService;
-import ru.practicum.exception.BadRequestException;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.request.dto.ParticipationRequestDto;
+import ru.practicum.request.mapper.RequestMapper;
 import ru.practicum.request.model.Request;
 import ru.practicum.request.model.RequestStatus;
 import ru.practicum.request.model.RequestStatusAction;
@@ -34,21 +33,21 @@ public class RequestServiceImpl implements RequestService {
     private final UserRepository userRepository;
     private final EventService eventService;
     private final StatsService statsService;
-    private final ModelMapper mapper;
+    private final RequestMapper requestMapper;
 
 
     @Override
     public List<ParticipationRequestDto> getUserEventRequests(long userId, long eventId) {
         eventService.findOrThrow(eventId);
         return repo.findByEventId(eventId).stream()
-                .map(this::convertToParticipationRequestDto)
+                .map(requestMapper::fromModelToParticipationRequestDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public EventRequestStatusUpdateResult updateUserEventRequestStatus(long userId, long eventId,
-                                                                        EventRequestStatusUpdateRequest updateRequest) {
+                                                                       EventRequestStatusUpdateRequest updateRequest) {
         var event = eventService.findOrThrow(eventId);
         var user = userRepository.findById(userId).orElseThrow(
                 () -> new NotFoundException("User was not found")
@@ -67,7 +66,7 @@ public class RequestServiceImpl implements RequestService {
 
         if (!requests.stream().map(Request::getStatus)
                 .allMatch(RequestStatus.PENDING::equals)) {
-            throw new BadRequestException("Request must have status PENDING");
+            throw new ConflictException("Request must have status PENDING");
         }
 
         Long limit = event.getParticipantLimit() - statsService.getConfirmedRequests(List.of(event))
@@ -82,8 +81,8 @@ public class RequestServiceImpl implements RequestService {
             confirmedRequests.addAll(changeRequestsStatus(requests, RequestStatus.CONFIRMED));
         }
         var result = new EventRequestStatusUpdateResult(
-                confirmedRequests.stream().map(this::convertToParticipationRequestDto).collect(Collectors.toList()),
-                rejectedRequests.stream().map(this::convertToParticipationRequestDto).collect(Collectors.toList())
+                confirmedRequests.stream().map(requestMapper::fromModelToParticipationRequestDto).collect(Collectors.toList()),
+                rejectedRequests.stream().map(requestMapper::fromModelToParticipationRequestDto).collect(Collectors.toList())
         );
 
         return result;
@@ -93,7 +92,7 @@ public class RequestServiceImpl implements RequestService {
     public List<ParticipationRequestDto> getParticipationRequests(long userId) {
         userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User was not found"));
         return  repo.findAllByRequesterId(userId).stream()
-                .map(this::convertToParticipationRequestDto).collect(Collectors.toList());
+                .map(requestMapper::fromModelToParticipationRequestDto).collect(Collectors.toList());
     }
 
     @Override
@@ -134,30 +133,22 @@ public class RequestServiceImpl implements RequestService {
         }
 
         var savedRequest = repo.save(request);
-        ParticipationRequestDto savedRequestDto = convertToParticipationRequestDto(savedRequest);
+        ParticipationRequestDto savedRequestDto = requestMapper.fromModelToParticipationRequestDto(savedRequest);
         return savedRequestDto;
     }
 
     @Override
     public ParticipationRequestDto cancelRequest(long userId, long requestId) {
         userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User was not found"));
-        ParticipationRequestDto request = repo.findByIdAndRequesterId(requestId, userId).orElseThrow(
+        var request = repo.findByIdAndRequesterId(requestId, userId).orElseThrow(
                 () -> new NotFoundException("Request is not found")
         );
         request.setStatus(RequestStatus.CANCELED);
-        return convertToParticipationRequestDto(repo.save(convertToModel(request)));
+        return requestMapper.fromModelToParticipationRequestDto(repo.save(request));
     }
 
     private List<Request> changeRequestsStatus(List<Request> requests, RequestStatus status) {
         requests.forEach(request -> request.setStatus(status));
         return repo.saveAll(requests);
-    }
-
-    private ParticipationRequestDto convertToParticipationRequestDto(Request request) {
-        return mapper.map(request, ParticipationRequestDto.class);
-    }
-
-    private Request convertToModel(ParticipationRequestDto participationRequestDto) {
-        return mapper.map(participationRequestDto, Request.class);
     }
 }

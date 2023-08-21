@@ -7,6 +7,7 @@ import ru.practicum.event.enums.EventStateAdminAction;
 import ru.practicum.event.model.Location;
 import ru.practicum.utils.Pattern;
 
+import javax.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 @Getter
@@ -16,8 +17,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class EventUpdateRequestDto {
 
+    @Size(min = 20, max = 2000)
     String annotation;
+
     Long category;
+
+    @Size(min = 20, max = 7000)
     String description;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Pattern.DATE)
@@ -28,5 +33,7 @@ public class EventUpdateRequestDto {
     Long participantLimit;
     Boolean requestModeration;
     EventStateAdminAction stateAction;
+
+    @Size(min = 3, max = 120)
     String title;
 }

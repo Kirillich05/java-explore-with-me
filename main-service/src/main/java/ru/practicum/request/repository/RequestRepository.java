@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.practicum.event.dto.EventOfConfirmedRequests;
-import ru.practicum.request.dto.ParticipationRequestDto;
 import ru.practicum.request.model.Request;
 
 import java.util.List;
@@ -24,20 +23,16 @@ public interface RequestRepository extends JpaRepository<Request, Long> {
 
     List<Request> findByEventId(long eventId);
 
-    @Query("SELECT request " +
-            "FROM Request as request " +
-            "JOIN Event as event ON request.event.id = event.id " +
-            "WHERE event.initiator.id = :userId AND " +
-            "request.event.id = :eventId"
-    )
-    List<Request> findAllByEventAndInitiator(@Param("userId") long userId,
-                                             @Param("eventId") long eventId);
-
     List<Request> findAllByIdIn(List<Long> reqIds);
 
     List<Request> findAllByRequesterId(long requesterId);
 
-    Optional<ParticipationRequestDto> findByIdAndRequesterId(long requestId, long userId);
+    Optional<Request> findByIdAndRequesterId(long requestId, long userId);
 
     Optional<Request> findByEventIdAndRequesterId(long eventId, long userId);
+
+    @Query("SELECT req FROM Request as req " +
+            "WHERE req.status = 'CONFIRMED' AND req.event.id = :eventId"
+    )
+    List<Request> findByEventIdConfirmedRequests(@Param("eventId") List<Long> eventId);
 }

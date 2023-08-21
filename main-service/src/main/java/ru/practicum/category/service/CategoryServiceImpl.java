@@ -1,19 +1,21 @@
 package ru.practicum.category.service;
 
 import lombok.AllArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.category.dto.CategoryDto;
 import ru.practicum.category.dto.NewCategoryDto;
+import ru.practicum.category.mapper.CategoryMapper;
 import ru.practicum.category.model.Category;
 import ru.practicum.category.repository.CategoryRepository;
+import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,61 +24,60 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository repo;
-    private final ModelMapper mapper;
+    private final EventRepository eventRepository;
+    private final CategoryMapper categoryMapper;
 
     @Override
     public CategoryDto getCategory(long id) {
         var category = findOrThrow(id);
-        return convertToDto(category);
+        return categoryMapper.fromModelToCategoryDto(category);
     }
 
     @Override
     public List<CategoryDto> getAllCategories(int from, int size) {
         Pageable page = PageRequest.of(from / size, size);
         return repo.findAll(page).stream()
-                .map(this::convertToDto)
+                .map(categoryMapper::fromModelToCategoryDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public CategoryDto saveCategory(NewCategoryDto newCategoryDto) {
-        var category = convertNewCategoryDtoToModel(newCategoryDto);
+        if (repo.existsByName(newCategoryDto.getName())) {
+            throw new ConflictException("Category is existed");
+        }
+        var category = categoryMapper.fromNewCategoryDtoToModel(newCategoryDto);
         var savedCategory = repo.save(category);
-        return convertToDto(savedCategory);
+        return categoryMapper.fromModelToCategoryDto(savedCategory);
     }
 
     @Override
     @Transactional
     public CategoryDto updateCategory(long id, CategoryDto categoryDto) {
-        var category = findOrThrow(id);
+        Category category = findOrThrow(id);
 
-//        if (categoryDto.getName().equals(category.getName())) {
-//            throw new ConflictException("Category is existed");
-//        }
-
+        Optional<Category> namedCategory = repo.checkName(categoryDto.getName());
+        if (category.getName().equals(categoryDto.getName())) {
+            return categoryMapper.fromModelToCategoryDto(category);
+        }
+        if (namedCategory.isPresent()) {
+            throw new ConflictException("Category is existed");
+        }
         category.setName(categoryDto.getName());
         var updatedCategory = repo.save(category);
-        return convertToDto(updatedCategory);
+        return categoryMapper.fromModelToCategoryDto(updatedCategory);
     }
 
     @Override
     @Transactional
     public void deleteCategory(long id) {
         findOrThrow(id);
+        if (eventRepository.existsByCategoryId(id)) {
+            throw new ConflictException("Category by " + id + " id links with events");
+        }
+
         repo.deleteById(id);
-    }
-
-    private CategoryDto convertToDto(Category category) {
-        return mapper.map(category, CategoryDto.class);
-    }
-
-    private Category convertCategoryDtoToModel(CategoryDto dto) {
-        return mapper.map(dto, Category.class);
-    }
-
-    private Category convertNewCategoryDtoToModel(NewCategoryDto dto) {
-        return mapper.map(dto, Category.class);
     }
 
     private Category findOrThrow(long id) {

@@ -25,15 +25,15 @@ public class EventPublicController {
 
     @GetMapping
     public List<EventShortDto> getEvents(@RequestParam(required = false) String text,
-                                               @RequestParam(required = false) List<Long> categories,
-                                               @RequestParam(required = false) Boolean paid,
-                                               @RequestParam(required = false) String rangeStart,
-                                               @RequestParam(required = false) String rangeEnd,
-                                               @RequestParam(defaultValue = "false") Boolean onlyAvailable,
-                                               @RequestParam(required = false) EventSortType sort,
-                                               @RequestParam(defaultValue = "0") @PositiveOrZero int from,
-                                               @RequestParam(defaultValue = "10") @Positive int size,
-                                               HttpServletRequest request) {
+                                         @RequestParam(required = false) List<Long> categories,
+                                         @RequestParam(required = false) Boolean paid,
+                                         @RequestParam(required = false) String rangeStart,
+                                         @RequestParam(required = false) String rangeEnd,
+                                         @RequestParam(defaultValue = "false") Boolean onlyAvailable,
+                                         @RequestParam(required = false) EventSortType sort,
+                                         @RequestParam(defaultValue = "0") @PositiveOrZero int from,
+                                         @RequestParam(defaultValue = "10") @Positive int size,
+                                         HttpServletRequest request) {
         log.info("Getting public events");
         return service.getEventsPublicAccess(text, categories, paid, rangeStart,
                 rangeEnd, onlyAvailable, sort, from, size, request);

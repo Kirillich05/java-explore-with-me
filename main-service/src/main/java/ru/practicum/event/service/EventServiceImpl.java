@@ -1,26 +1,25 @@
 package ru.practicum.event.service;
 
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.category.model.Category;
 import ru.practicum.category.repository.CategoryRepository;
 import ru.practicum.event.dto.*;
 import ru.practicum.event.enums.EventSortType;
 import ru.practicum.event.enums.EventState;
 import ru.practicum.event.enums.EventStateAdminAction;
 import ru.practicum.event.enums.UserStateAction;
+import ru.practicum.event.mapper.EventMapper;
 import ru.practicum.event.model.Event;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.repository.LocationRepository;
+import ru.practicum.exception.BadRequestException;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.statistic.StatsHitMapper;
 import ru.practicum.statistic.StatsService;
-import ru.practicum.user.model.User;
 import ru.practicum.user.repository.UserRepository;
 import ru.practicum.utils.Pattern;
 
@@ -44,14 +43,15 @@ public class EventServiceImpl implements EventService {
     private final StatsService statsService;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
-    private final ModelMapper mapper;
     private final EntityManager entityManager;
     private final LocationRepository locationRepository;
+    private final EventMapper eventMapper;
 
     @Override
     public List<EventShortDto> getEventsPublicAccess(String text, List<Long> categories, Boolean paid, String rangeStart,
-                                               String rangeEnd, Boolean onlyAvailable, EventSortType sort, int from,
-                                               int size, HttpServletRequest request) {
+                                                     String rangeEnd, Boolean onlyAvailable, EventSortType sort, int from,
+                                                     int size, HttpServletRequest request) {
+        if (rangeStart != null && rangeEnd != null) isValidDate(rangeStart, rangeEnd);
         var start = rangeStart == null ? null : LocalDateTime.parse(rangeStart, DateTimeFormatter.ofPattern(Pattern.DATE));
         var end = rangeEnd == null ? null : LocalDateTime.parse(rangeEnd, DateTimeFormatter.ofPattern(Pattern.DATE));
 
@@ -90,9 +90,6 @@ public class EventServiceImpl implements EventService {
                 .setFirstResult(from)
                 .setMaxResults(size)
                 .getResultList();
-        if (events.isEmpty()) {
-            return List.of();
-        }
 
         Map<Long, Long> participantLimit = new HashMap<>();
         events.forEach(event -> participantLimit.put(event.getId(), event.getParticipantLimit()));
@@ -110,6 +107,9 @@ public class EventServiceImpl implements EventService {
             eventShortDtos.sort(Comparator.comparing(EventShortDto::getEventDate));
         }
 
+        if (eventShortDtos.isEmpty()) {
+            return List.of();
+        }
         statsService.addHit(StatsHitMapper.toEndpointHit(request, "main-service"));
 
         return eventShortDtos;
@@ -117,7 +117,10 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public EventFullDto getEventByIdPublicAccess(long id, HttpServletRequest request) {
-        var event = findOrThrow(id);
+        var event = eventRepository.findByIdAndPublishedOnIsNotNull(id).orElseThrow(
+                () -> new NotFoundException("The event " + id + " is not found")
+        );
+
         statsService.addHit(StatsHitMapper.toEndpointHit(request, "main-service"));
         List<EventFullDto> eventFullDtos = mapEventToViewAndRequests(List.of(event));
         return eventFullDtos.get(0);
@@ -129,15 +132,12 @@ public class EventServiceImpl implements EventService {
         var event = findOrThrow(eventId);
         if (updateRequestDto.getEventDate() != null) {
             var eventTime = updateRequestDto.getEventDate();
-            if (eventTime.isBefore(LocalDateTime.now()) || eventTime.isBefore(event.getPublishedOn().plusHours(1))) {
-                throw new ConflictException("The time is wrong");
+            if (eventTime.isBefore(LocalDateTime.now()) || eventTime.isBefore(LocalDateTime.now().plusHours(2))) {
+                throw new BadRequestException("The time is wrong");
             }
             event.setEventDate(updateRequestDto.getEventDate());
         }
 
-        if (!event.getState().equals(EventState.PENDING)) {
-            throw new ConflictException("Event is published or cancelled");
-        }
         if (updateRequestDto.getAnnotation() != null) {
             event.setAnnotation(updateRequestDto.getAnnotation());
         }
@@ -150,7 +150,7 @@ public class EventServiceImpl implements EventService {
             event.setDescription(updateRequestDto.getDescription());
         }
         if (updateRequestDto.getLocation() != null) {
-            event.setLocation(updateRequestDto.getLocation());
+            event.setLocation(locationRepository.save(updateRequestDto.getLocation()));
         }
         if (updateRequestDto.getPaid() != null) {
             event.setPaid(updateRequestDto.getPaid());
@@ -167,9 +167,18 @@ public class EventServiceImpl implements EventService {
 
         if (updateRequestDto.getStateAction() != null) {
             if (updateRequestDto.getStateAction().equals(EventStateAdminAction.PUBLISH_EVENT)) {
+                if (event.getPublishedOn() != null) {
+                    throw new ConflictException("Event is published");
+                }
+                if (event.getState().equals(EventState.CANCELED)) {
+                    throw new ConflictException("Event is cancelled");
+                }
                 event.setState(EventState.PUBLISHED);
                 event.setPublishedOn(LocalDateTime.now());
             } else if (updateRequestDto.getStateAction().equals(EventStateAdminAction.REJECT_EVENT)) {
+                if (event.getPublishedOn() != null) {
+                    throw new ConflictException("Event is published");
+                }
                 event.setState(EventState.CANCELED);
             }
         }
@@ -184,7 +193,6 @@ public class EventServiceImpl implements EventService {
                                                    String rangeStart, String rangeEnd, int from, int size) {
         var start = rangeStart == null ? null : LocalDateTime.parse(rangeStart, DateTimeFormatter.ofPattern(Pattern.DATE));
         var end = rangeEnd == null ? null : LocalDateTime.parse(rangeEnd, DateTimeFormatter.ofPattern(Pattern.DATE));
-
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Event> query = criteriaBuilder.createQuery(Event.class);
         Root<Event> root = query.from(Event.class);
@@ -227,14 +235,14 @@ public class EventServiceImpl implements EventService {
         var initiator = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
 
         if (newEventDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ConflictException("Wrong time");
+            throw new BadRequestException("Wrong time");
         }
 
         newEventDto.setLocation(locationRepository.save(newEventDto.getLocation()));
 
-        var event = eventRepository.save(convertNewEventDtoToEventModel(
+        var event = eventRepository.save(eventMapper.fromNewEventDtoToEvent(
                 newEventDto, category, initiator));
-        EventFullDto eventFullDto = convertToEventFullDto(event, 0L, 0L);
+        EventFullDto eventFullDto = eventMapper.fromModelToFullEventDto(event, 0L, 0L);
 
         return eventFullDto;
     }
@@ -258,12 +266,12 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public EventFullDto updateEventPrivateAccess(long userId, long eventId, UpdateEventUserRequestDto requestDto) {
-        var event = eventRepository.findByIdAndInitiator(userId, eventId).orElseThrow(
+        var event = eventRepository.findByIdAndInitiatorId(eventId, userId).orElseThrow(
                 () -> new NotFoundException("Event was not found")
         );
 
         if (requestDto.getEventDate() != null && requestDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ConflictException("Event started in less 2 h");
+            throw new BadRequestException("Event started in less 2 h");
         }
 
         if (event.getState().equals(EventState.PUBLISHED)) {
@@ -318,7 +326,7 @@ public class EventServiceImpl implements EventService {
         Map<Long, Long> requests = statsService.getConfirmedRequests(events);
 
         return events.stream()
-                .map(event -> convertToEventShortDto(event,
+                .map(event -> eventMapper.fromModelToEventShortDto(event,
                         requests.getOrDefault(event.getId(), 0L),
                         views.getOrDefault(event.getId(), 0L)))
                 .collect(Collectors.toList());
@@ -335,12 +343,12 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<Event> findAllByIds(List<Long> ids) {
-        return eventRepository.findAllByIdIn(ids);
+        return eventRepository.findByIds(ids);
     }
 
     private Event findEventByInitiator(long eventId, long userId) {
         userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
-        return eventRepository.findByIdAndInitiator(eventId, userId).orElseThrow(() ->
+        return eventRepository.findByIdAndInitiatorId(eventId, userId).orElseThrow(() ->
                 new NotFoundException("Event is not found"));
     }
 
@@ -349,45 +357,19 @@ public class EventServiceImpl implements EventService {
         Map<Long, Long> requests = statsService.getConfirmedRequests(events);
 
         return events.stream()
-                .map(event -> convertToEventFullDto(event,
+                .map(event -> eventMapper.fromModelToFullEventDto(event,
                         requests.getOrDefault(event.getId(), 0L),
                         views.getOrDefault(event.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
-    private EventFullDto convertToEventFullDto(Event event) {
-        return mapper.map(event, EventFullDto.class);
-    }
+    private void isValidDate(String start, String end) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Pattern.DATE);
+        LocalDateTime dateStart = LocalDateTime.parse(start, formatter);
+        LocalDateTime dateEnd = LocalDateTime.parse(end, formatter);
 
-    private EventFullDto convertToEventFullDto(Event event, Long requests, Long views) {
-        var eventFullDto = mapper.map(event, EventFullDto.class);
-        eventFullDto.setViews(views);
-        eventFullDto.setConfirmedRequests(requests);
-        return eventFullDto;
+        if (dateStart.isAfter(dateEnd)) {
+            throw new BadRequestException("End is before than start datetime");
+        }
     }
-
-    private Event convertNewEventDtoToEventModel(NewEventDto newEventDto, Category category,
-                                                 User initiator) {
-        var event = mapper.map(newEventDto, Event.class);
-        event.setCategory(category);
-        event.setInitiator(initiator);
-        return event;
-    }
-
-    private EventShortDto convertToEventShortDto(Event event, Long requests, Long views) {
-        var eventShortDto = mapper.map(event, EventShortDto.class);
-        eventShortDto.setViews(views);
-        eventShortDto.setConfirmedRequests(requests);
-        return eventShortDto;
-    }
-
-//    private void isValidDate(String start, String end) {
-//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Pattern.DATE);
-//        LocalDateTime dateStart = LocalDateTime.parse(start, formatter);
-//        LocalDateTime dateEnd = LocalDateTime.parse(end, formatter);
-//
-//        if (dateStart.isAfter(dateEnd)) {
-//            throw new BadRequestException("End is before than start datetime");
-//        }
-//    }
 }

@@ -11,8 +11,8 @@ import java.util.List;
 public interface EventService {
 
     List<EventShortDto> getEventsPublicAccess(String text, List<Long> categories, Boolean paid, String rangeStart,
-                                        String rangeEnd, Boolean onlyAvailable, EventSortType sort, int from,
-                                        int size, HttpServletRequest request);
+                                              String rangeEnd, Boolean onlyAvailable, EventSortType sort, int from,
+                                              int size, HttpServletRequest request);
 
     EventFullDto getEventByIdPublicAccess(long id, HttpServletRequest request);
 

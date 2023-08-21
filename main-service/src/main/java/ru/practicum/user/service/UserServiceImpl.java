@@ -1,15 +1,15 @@
 package ru.practicum.user.service;
 
 import lombok.AllArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.user.dto.NewUserRequest;
 import ru.practicum.user.dto.UserDto;
-import ru.practicum.user.model.User;
+import ru.practicum.user.mapper.UserMapper;
 import ru.practicum.user.repository.UserRepository;
 
 import java.util.List;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository repo;
-    private final ModelMapper mapper;
+    private final UserMapper userMapper;
 
 
 
@@ -30,11 +30,11 @@ public class UserServiceImpl implements UserService {
         Pageable page = PageRequest.of(from / size, size);
         if (ids == null || ids.isEmpty()) {
             return repo.findAll(page).stream()
-                    .map(this::convertToDto)
+                    .map(userMapper::fromModelToUserDto)
                     .collect(Collectors.toList());
         } else {
             return repo.findAllByIdIn(ids, page).stream()
-                    .map(this::convertToDto)
+                    .map(userMapper::fromModelToUserDto)
                     .collect(Collectors.toList());
         }
     }
@@ -42,8 +42,12 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDto saveUser(NewUserRequest userDto) {
-        var user = convertToModel(userDto);
-        return convertToDto(repo.save(user));
+        if (repo.existsByName(userDto.getName())) {
+            throw new ConflictException("User with the name " + userDto.getName() + " is existed");
+        }
+
+        var user = userMapper.fromNewUserRequestToModel(userDto);
+        return userMapper.fromModelToUserDto(repo.save(user));
     }
 
     @Override
@@ -51,13 +55,5 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(long userId) {
         repo.findById(userId).orElseThrow(() -> new NotFoundException("User is not found"));
         repo.deleteById(userId);
-    }
-
-    private UserDto convertToDto(User user) {
-        return mapper.map(user, UserDto.class);
-    }
-
-    private User convertToModel(NewUserRequest dto) {
-        return mapper.map(dto, User.class);
     }
 }
