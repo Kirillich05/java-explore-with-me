@@ -33,7 +33,7 @@ public class StatsServiceImpl implements StatsService {
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, Boolean unique) {
         if (start != null && end != null) isValidDate(start, end);
-        if (start == null|| end == null) {
+        if (start == null || end == null) {
             throw new BadRequestException("Start or end time is empty");
         }
 
