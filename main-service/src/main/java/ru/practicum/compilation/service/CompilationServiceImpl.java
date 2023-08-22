@@ -20,6 +20,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,7 +36,7 @@ public class CompilationServiceImpl implements CompilationService {
     @Override
     @Transactional
     public CompilationDto create(NewCompilationDto newCompilationDto) {
-        List<Event> events = eventService.findAllByIds(newCompilationDto.getEvents());
+        Set<Event> events = eventService.findAllByIds(newCompilationDto.getEvents());
         Compilation compilation = repo.save(compilationMapper.fromNewCompilationDtoToModel(newCompilationDto, events));
 
         return compilationMapper.fromModelToCompilationDto(compilation);
@@ -47,7 +48,7 @@ public class CompilationServiceImpl implements CompilationService {
         var compilation = findOrThrow(compId);
 
         if (updateCompilationRequest.getEvents() != null) {
-            List<Event> events = eventService.findAllByIds(updateCompilationRequest.getEvents());
+            Set<Event> events = eventService.findAllByIds(updateCompilationRequest.getEvents());
             compilation.setEvents(events);
         }
         if (updateCompilationRequest.getPinned() != null) {
@@ -71,7 +72,7 @@ public class CompilationServiceImpl implements CompilationService {
     @Override
     public CompilationDto getById(long compId) {
         var compilation = findOrThrow(compId);
-        List<EventShortDto> events = eventService.getEventShortWithViewsAndRequests(compilation.getEvents());
+        List<EventShortDto> events = eventService.getEventShortWithViewsAndRequests(List.copyOf(compilation.getEvents()));
         return compilationMapper.fromModelToCompilationDto(compilation, events);
     }
 

@@ -5,7 +5,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
-import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -14,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 public class NewCompilationDto {
 
-    List<Long> events;
+    Set<Long> events;
     Boolean pinned = false;
 
     @NotBlank

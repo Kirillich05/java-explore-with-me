@@ -30,14 +30,14 @@ public class RequestController {
     @ResponseStatus(HttpStatus.CREATED)
     public ParticipationRequestDto createRequest(@PathVariable @Positive long userId,
                                                  @RequestParam @Positive long eventId) {
-        log.info("Creating request");
+        log.info("Creating request from the user by id " + userId + " to participate in the event by id " + eventId);
         return requestService.createRequest(userId, eventId);
     }
 
     @PatchMapping("/{requestId}/cancel")
     public ParticipationRequestDto cancelRequest(@PathVariable @Positive long userId,
                                                  @PathVariable @Positive long requestId) {
-        log.info("Cancelling request from patch-method");
+        log.info("Cancelling request " + requestId + " of user " + userId);
         return requestService.cancelRequest(userId, requestId);
     }
 }

@@ -35,12 +35,12 @@ public class NewEventDto {
     @NotNull
     Location location;
 
-    Boolean paid = false;
+    boolean paid = false;
 
     @PositiveOrZero
     Long participantLimit = 0L;
 
-    Boolean requestModeration = true;
+    boolean requestModeration = true;
 
     @NotBlank
     @Size(min = 3, max = 120)

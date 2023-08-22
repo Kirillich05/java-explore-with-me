@@ -7,6 +7,7 @@ import ru.practicum.event.model.Event;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Set;
 
 public interface EventService {
 
@@ -33,5 +34,5 @@ public interface EventService {
 
     Event findOrThrow(long id);
 
-    List<Event> findAllByIds(List<Long> ids);
+    Set<Event> findAllByIds(Set<Long> ids);
 }

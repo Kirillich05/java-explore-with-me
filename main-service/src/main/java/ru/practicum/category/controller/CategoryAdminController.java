@@ -24,7 +24,7 @@ public class CategoryAdminController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CategoryDto saveCategory(@RequestBody @Valid NewCategoryDto newCategoryDto) {
-        log.info("Create category");
+        log.info("Create new category");
         return service.saveCategory(newCategoryDto);
     }
 

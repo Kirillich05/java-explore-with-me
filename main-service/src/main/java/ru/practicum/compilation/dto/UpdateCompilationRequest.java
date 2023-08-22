@@ -4,7 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.validator.constraints.Length;
 
-import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 public class UpdateCompilationRequest {
 
-    List<Long> events;
+    Set<Long> events;
     Boolean pinned;
 
     @Length(min = 1, max = 50)

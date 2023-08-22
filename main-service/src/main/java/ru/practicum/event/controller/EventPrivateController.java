@@ -28,7 +28,7 @@ public class EventPrivateController {
     public List<EventShortDto> getEventsPrivateAccess(@PathVariable @Positive long userId,
                                                       @RequestParam(name = "from", defaultValue = "0") int from,
                                                       @RequestParam(name = "size", defaultValue = "10") int size) {
-        log.info("Getting events from private access");
+        log.info("Getting events added by user " + userId +  "from private access");
         return service.getEventsPrivateAccess(userId, from, size);
     }
 
@@ -43,7 +43,7 @@ public class EventPrivateController {
     @GetMapping("/{eventId}")
     public EventFullDto getEventByUser(@PathVariable("userId") @Positive long userId,
                                        @PathVariable("eventId") @Positive long eventId) {
-        log.info("Getting event " + eventId + " from private access");
+        log.info("Getting event " + eventId + " added by user " + userId + " from private access");
         return service.getEventByIdPrivateAccess(userId, eventId);
     }
 
@@ -51,14 +51,15 @@ public class EventPrivateController {
     public EventFullDto updateEventByUser(@PathVariable("userId") @Positive long userId,
                                           @PathVariable("eventId") @Positive long eventId,
                                           @RequestBody @Valid UpdateEventUserRequestDto requestDto) {
-        log.info("Updating event " + eventId + " from private access");
+        log.info("Updating event " + eventId + " added by user " + userId + "  from private access");
         return service.updateEventPrivateAccess(userId, eventId, requestDto);
     }
 
     @GetMapping("/{eventId}/requests")
     public List<ParticipationRequestDto> getUserEventRequests(@PathVariable("userId") @Positive long userId,
                                                               @PathVariable("eventId") @Positive long eventId) {
-        log.info("Getting user event requests from private access");
+        log.info("Getting information about requests to participate in the event " + eventId + " of the current user " +
+                userId + " from private access");
         return requestService.getUserEventRequests(userId, eventId);
     }
 
@@ -66,7 +67,8 @@ public class EventPrivateController {
     public EventRequestStatusUpdateResult updateEventRequestStatus(@PathVariable("userId") @Positive long userId,
                                                                    @PathVariable("eventId") @Positive long eventId,
                                                                    @RequestBody @Valid EventRequestStatusUpdateRequest updateRequest) {
-        log.info("Updating user event request " + eventId + " from private access");
+        log.info("Updating request status for participation in the event " + eventId +
+                "  of the current user " + userId + " from private access");
         return requestService.updateUserEventRequestStatus(userId, eventId, updateRequest);
     }
 }

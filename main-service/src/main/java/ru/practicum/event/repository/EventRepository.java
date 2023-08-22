@@ -8,8 +8,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.practicum.event.model.Event;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
@@ -23,7 +23,7 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     @Query("SELECT event from Event event " +
             "WHERE event.id IN (:ids)"
     )
-    List<Event> findByIds(@Param("ids") List<Long> ids);
+    Set<Event> findByIds(@Param("ids") Set<Long> ids);
 
     Boolean existsByCategoryId(Long id);
 }
