@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.StatsMapper;
 import ru.practicum.dto.EndpointHitDto;
 import ru.practicum.dto.ViewStatsDto;
+import ru.practicum.exception.BadRequestException;
 import ru.practicum.model.ViewStats;
 import ru.practicum.repository.StatsRepo;
 
@@ -31,6 +32,11 @@ public class StatsServiceImpl implements StatsService {
     @Override
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, Boolean unique) {
+        if (start != null && end != null) isValidDate(start, end);
+        if (start == null || end == null) {
+            throw new BadRequestException("Start or end time is empty");
+        }
+
         List<ViewStats> stats;
 
         if (uris == null || uris.isEmpty()) {
@@ -55,6 +61,12 @@ public class StatsServiceImpl implements StatsService {
             return stats.stream()
                     .map(StatsMapper::toViewStatsDto)
                     .collect(Collectors.toList());
+        }
+    }
+
+    private void isValidDate(LocalDateTime start, LocalDateTime end) {
+        if (start.isAfter(end)) {
+            throw new BadRequestException("End is before than start datetime");
         }
     }
 }
