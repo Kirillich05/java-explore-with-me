@@ -104,7 +104,7 @@ public class CommentServiceImpl implements CommentService {
         if (eventId == null) {
             comments = repo.findAllByUserId(userId, page);
         } else {
-            eventService.getEventByIdPrivateAccess(userId, eventId);
+            eventService.findOrThrow(eventId);
             comments = repo.findAllByUserIdAndEventId(userId, eventId, page);
         }
 

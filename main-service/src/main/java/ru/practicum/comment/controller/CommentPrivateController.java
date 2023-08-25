@@ -23,7 +23,7 @@ public class CommentPrivateController {
 
     private final CommentService service;
 
-    @PostMapping
+    @PostMapping("/{eventId}")
     @ResponseStatus(HttpStatus.CREATED)
     public CommentDto saveComment(@RequestBody @Valid NewCommentDto newCommentDto,
                                   @PathVariable @Positive long eventId,

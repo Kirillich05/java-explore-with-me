@@ -20,8 +20,8 @@ public class CommentPublicController {
 
     private final CommentService service;
 
-    @GetMapping
-    public List<CommentDto> getComments(@RequestParam @Positive long eventId,
+    @GetMapping("/{eventId}")
+    public List<CommentDto> getComments(@PathVariable @Positive long eventId,
                                         @RequestParam(defaultValue = "0") @PositiveOrZero int from,
                                         @RequestParam(defaultValue = "10") @Positive int size) {
         log.info("Get comments of event " + eventId);
